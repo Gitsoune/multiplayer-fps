@@ -5,6 +5,8 @@ use std::io::{self, Write};
 use std::net::UdpSocket;
 use std::time::Duration;
 
+use crate::maze::Maze;
+
 const BUFFER_SIZE: usize = 1024;
 
 pub fn start_client() {
@@ -55,13 +57,25 @@ pub fn start_client() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
-        .window("Maze Wars Client", 800, 600)
+        .window("Maze Wars Client", 1200, 800)
         .position_centered()
         .build()
         .unwrap();
     let mut canvas = window.into_canvas().build().unwrap();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
+
+    let maze = Maze::level(3); // Change to 2 or 3 for harder levels
+
+    let window_width = 1200;
+    let window_height = 800;
+    let cell_size = 10;
+
+    let maze_pixel_width = maze.width * cell_size;
+    let maze_pixel_height = maze.height * cell_size;
+
+    let offset_x = ((window_width as isize - maze_pixel_width as isize) / 2) as i32;
+    let offset_y = ((window_height as isize - maze_pixel_height as isize) / 2) as i32;
 
     // Main loop (just clears screen for now)
     'running: loop {
@@ -79,7 +93,22 @@ pub fn start_client() {
         }
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
-        // TODO: Draw maze, players, minimap, FPS, etc.
+
+        // Draw maze centered
+        for y in 0..maze.height {
+            for x in 0..maze.width {
+                if maze.grid[y][x] == 1 {
+                    canvas.set_draw_color(Color::RGB(100, 100, 100));
+                    let _ = canvas.fill_rect(sdl2::rect::Rect::new(
+                        offset_x + (x as i32) * (cell_size as i32),
+                        offset_y + (y as i32) * (cell_size as i32),
+                        cell_size as u32,
+                        cell_size as u32,
+                    ));
+                }
+            }
+        }
+
         canvas.present();
     }
 }

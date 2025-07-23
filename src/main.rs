@@ -3,6 +3,7 @@ use crate::server::start_server;
 use std::env;
 
 mod client;
+mod maze;
 mod server;
 
 fn main() {
