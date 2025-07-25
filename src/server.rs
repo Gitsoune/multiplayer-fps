@@ -1,75 +1,83 @@
 use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-const MAX_CLIENTS: usize = 10;
-const BUFFER_SIZE: usize = 1024;
+const MAX_CLIENTS: usize = 32;
+const TICK_RATE: Duration = Duration::from_millis(20); // ~50 FPS
 
 #[derive(Debug, Clone)]
-pub struct Player {
-    pub username: String,
-    pub addr: SocketAddr,
+struct Player {
+    username: String,
+    position: (f32, f32),
+    addr: SocketAddr,
+    // Add more fields as needed (direction, health, etc.)
 }
 
-pub struct Server {
-    socket: UdpSocket,
-    players: HashMap<SocketAddr, Player>,
+#[derive(Debug, Clone)]
+struct Maze {
+    // Define your maze structure here
+    // For example: walls, size, level number, etc.
 }
 
-impl Server {
-    pub fn new(bind_addr: &str) -> Self {
-        let socket = UdpSocket::bind(bind_addr).expect("Could not bind UDP socket");
-        socket
-            .set_read_timeout(Some(Duration::from_millis(100)))
-            .unwrap();
-        Server {
-            socket,
-            players: HashMap::new(),
-        }
-    }
+pub fn run() {
+    let socket = UdpSocket::bind("0.0.0.0:8080").expect("Could not bind server socket");
+    socket
+        .set_nonblocking(true)
+        .expect("Failed to set non-blocking");
 
-    pub fn run(&mut self) {
-        println!("Server running on {}", self.socket.local_addr().unwrap());
-        let mut buf = [0u8; BUFFER_SIZE];
-        loop {
-            match self.socket.recv_from(&mut buf) {
-                Ok((size, addr)) => {
-                    let msg = String::from_utf8_lossy(&buf[..size]);
-                    self.handle_message(msg.to_string(), addr);
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    // Timeout, continue
-                }
-                Err(e) => {
-                    eprintln!("Error receiving UDP packet: {}", e);
-                }
-            }
-        }
-    }
+    println!("Server running on 0.0.0.0:8080");
 
-    fn handle_message(&mut self, msg: String, addr: SocketAddr) {
-        if msg.starts_with("JOIN:") {
-            let username = msg[5..].trim().to_string();
-            if self.players.len() < MAX_CLIENTS {
-                self.players.insert(
-                    addr,
-                    Player {
-                        username: username.clone(),
+    let mut clients: HashMap<SocketAddr, Player> = HashMap::new();
+    let mut maze = Maze {
+        // Initialize your maze here (level 1)
+    };
+
+    let mut buf = [0u8; 1024];
+    let mut last_tick = Instant::now();
+
+    loop {
+        // Receive messages from clients
+        match socket.recv_from(&mut buf) {
+            Ok((size, addr)) => {
+                // Parse message, handle new connections, updates, etc.
+                // Example: handle join, movement, etc.
+                // If new client:
+                if !clients.contains_key(&addr) && clients.len() < MAX_CLIENTS {
+                    // Parse username from message
+                    let username = String::from_utf8_lossy(&buf[..size]).to_string();
+                    clients.insert(
                         addr,
-                    },
-                );
-                println!("Player joined: {} from {}", username, addr);
-                let _ = self.socket.send_to(b"WELCOME", addr);
-            } else {
-                let _ = self.socket.send_to(b"SERVER FULL", addr);
+                        Player {
+                            username: username.clone(),
+                            position: (0.0, 0.0), // spawn position
+                            addr,
+                        },
+                    );
+                    println!("New client: {} @ {}", username, addr);
+                } else {
+                    // Handle movement or other updates
+                }
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // No data received, continue
+            }
+            Err(e) => {
+                eprintln!("Error receiving from socket: {}", e);
             }
         }
-        // Future: handle game state, movement, etc.
-    }
-}
 
-// Entry point for running the server
-pub fn start_server(bind_addr: &str) {
-    let mut server = Server::new(bind_addr);
-    server.run();
+        // Game tick: update state and broadcast to clients
+        if last_tick.elapsed() >= TICK_RATE {
+            // Serialize game state (players, maze, etc.)
+            let state = format!("STATE: {:?}", clients); // Replace with proper serialization
+
+            for player in clients.values() {
+                let _ = socket.send_to(state.as_bytes(), player.addr);
+            }
+
+            last_tick = Instant::now();
+        }
+
+        // TODO: Handle level switching, client disconnects, etc.
+    }
 }

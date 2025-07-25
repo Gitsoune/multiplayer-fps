@@ -1,18 +1,13 @@
-use crate::client::start_client;
-use crate::server::start_server;
-use std::env;
+use bevy::prelude::*;
 
 mod client;
-mod maze;
 mod server;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && args[1] == "server" {
-        // Run only the server
-        start_server("0.0.0.0:8080");
+        server::run();
     } else {
-        // Run only the client
-        start_client();
+        client::run();
     }
 }
