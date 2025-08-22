@@ -1,72 +1,89 @@
+use bevy::prelude::*;
 use std::io::{self, Write};
-use std::net::UdpSocket;
-use std::thread;
-use std::time::Duration;
 
-// Minimal terminal-only UDP client. Keeps networking working while you iterate
-// on the Bevy UI separately. It connects to the server, sends a username and
-// prints server messages without attempting to use Bevy APIs.
+// Minimal Bevy client with an FPS overlay (works with Bevy 0.16.1).
+
+#[derive(Component)]
+struct FpsText;
+
+// Small resource that stores the last-displayed integer FPS to avoid
+// reformatting and updating the UI every frame when the value hasn't changed.
+#[derive(Resource)]
+struct FpsCache {
+    last: i32,
+}
 
 pub fn run() {
-    // Prompt for server IP and username (minimal)
-    print!("Enter IP Address (e.g. 127.0.0.1:8080): ");
-    io::stdout().flush().unwrap();
-    let mut ip = String::new();
-    io::stdin().read_line(&mut ip).unwrap();
-    let ip = ip.trim().to_string();
+    // Prompt (optional)
+    print!("Enter IP Address ( 127.0.0.1:8080 ) : ");
+    io::stdout().flush().ok();
+    let mut _ip = String::new();
+    let _ = io::stdin().read_line(&mut _ip);
 
-    print!("Enter Name: ");
-    io::stdout().flush().unwrap();
-    let mut username = String::new();
-    io::stdin().read_line(&mut username).unwrap();
-    let username = username.trim().to_string();
+    print!("Enter Name : ");
+    io::stdout().flush().ok();
+    let mut _username = String::new();
+    let _ = io::stdin().read_line(&mut _username);
 
-    println!("Starting...");
+    println!("Starting Bevy UI Client...");
 
-    // create and connect UDP socket
-    let socket = UdpSocket::bind("0.0.0.0:0").expect("Could not bind client socket");
-    socket
-        .connect(&ip)
-        .unwrap_or_else(|e| panic!("Could not connect to server {}: {}", ip, e));
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(FpsCache { last: -1 })
+        .add_systems(Startup, setup)
+        .add_systems(Update, show_fps)
+        .run();
+}
 
-    socket
-        .send(username.as_bytes())
-        .expect("Failed to send username");
+fn setup(mut commands: Commands) {
+    // UI camera (example uses the unit `Camera2d` marker)
+    commands.spawn(Camera2d);
 
-    let sock_bg = socket.try_clone().expect("failed to clone socket");
-    thread::spawn(move || {
-        let mut buf = [0u8; 2048];
-        let mut last_printed = String::new();
-        loop {
-            match sock_bg.recv(&mut buf) {
-                Ok(size) => {
-                    let msg = String::from_utf8_lossy(&buf[..size]).to_string();
-                    // Only print when the server message changes (suppress repeated STATE spam)
-                    if !msg.is_empty() && msg != last_printed {
-                        println!("Server: {}", msg);
-                        last_printed = msg;
-                    }
-                }
-                Err(_) => {
-                    // continue
-                }
-            }
-            thread::sleep(Duration::from_millis(10));
-        }
-    });
+    // Spawn a parent Text with one section "FPS: " and a child TextSpan which
+    // we will update each frame. This mirrors the Bevy example structure.
+    commands
+        .spawn((
+            // Parent text with the label
+            Text::new("FPS: "),
+            // Styling for the parent text
+            TextFont {
+                font: default(),
+                font_size: 42.0,
+                ..default()
+            },
+        ))
+        .with_child((
+            // Child span that will contain the numeric FPS value.
+            TextSpan::default(),
+            TextFont {
+                font: default(),
+                font_size: 33.0,
+                ..default()
+            },
+            // Marker so we can query the span later
+            FpsText,
+        ));
+}
 
-    // Main thread can accept simple user commands to send to server
-    loop {
-        let mut line = String::new();
-        if io::stdin().read_line(&mut line).is_ok() {
-            let line = line.trim();
-            if line == "quit" || line == "exit" {
-                println!("Exiting client");
-                break;
-            }
-            if !line.is_empty() {
-                let _ = socket.send(line.as_bytes());
-            }
-        }
+fn show_fps(
+    time: Res<Time>,
+    mut cache: ResMut<FpsCache>,
+    mut query: Query<&mut TextSpan, With<FpsText>>,
+) {
+    let dt = time.delta_secs();
+    if dt <= 0.0 {
+        return;
+    }
+
+    // Compute integer FPS and only update UI when it changes.
+    let fps_i = (1.0 / dt).round() as i32;
+    if fps_i == cache.last {
+        return;
+    }
+    cache.last = fps_i;
+
+    let display = fps_i.to_string();
+    for mut span in &mut query {
+        **span = display.clone();
     }
 }
