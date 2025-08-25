@@ -14,18 +14,67 @@ struct FpsCache {
 }
 
 pub fn run() {
-    // Prompt (optional)
-    print!("Enter IP Address ( 127.0.0.1:8080 ) : ");
-    io::stdout().flush().ok();
-    let mut _ip = String::new();
-    let _ = io::stdin().read_line(&mut _ip);
+    use std::net::ToSocketAddrs;
+    use std::net::UdpSocket;
+    use std::time::Duration;
 
-    print!("Enter Name : ");
-    io::stdout().flush().ok();
-    let mut _username = String::new();
-    let _ = io::stdin().read_line(&mut _username);
+    // Prompt for server IP:PORT and validate
+    let server_addr = loop {
+        print!("Enter server IP:PORT (e.g. 127.0.0.1:8080): ");
+        io::stdout().flush().ok();
+        let mut ip_input = String::new();
+        if io::stdin().read_line(&mut ip_input).is_err() {
+            println!("Failed to read input. Try again.");
+            continue;
+        }
+        let ip_input = ip_input.trim();
+        // Try to parse as SocketAddr
+        if let Ok(addr) = ip_input
+            .to_socket_addrs()
+            .and_then(|mut iter| iter.next().ok_or(std::io::ErrorKind::InvalidInput.into()))
+        {
+            // Try to send a test UDP packet
+            match UdpSocket::bind("0.0.0.0:0") {
+                Ok(sock) => {
+                    sock.set_read_timeout(Some(Duration::from_millis(500))).ok();
+                    let _ = sock.send_to(b"ping", addr);
+                    // Optionally, wait for a response (not required for now)
+                    // let mut buf = [0u8; 16];
+                    // if sock.recv_from(&mut buf).is_ok() { ... }
+                    println!("Server address accepted: {}", addr);
+                    break addr;
+                }
+                Err(e) => {
+                    println!("Failed to bind UDP socket: {e}");
+                    continue;
+                }
+            }
+        } else {
+            println!("Invalid IP:PORT. Please try again.");
+        }
+    };
 
-    println!("Starting Bevy UI Client...");
+    // Prompt for username only after IP is validated
+    let username = loop {
+        print!("Enter Name: ");
+        io::stdout().flush().ok();
+        let mut name = String::new();
+        if io::stdin().read_line(&mut name).is_err() {
+            println!("Failed to read input. Try again.");
+            continue;
+        }
+        let name = name.trim();
+        if name.is_empty() {
+            println!("Name cannot be empty.");
+            continue;
+        }
+        break name.to_string();
+    };
+
+    println!(
+        "Starting Bevy UI Client... (server: {}, username: {})",
+        server_addr, username
+    );
 
     App::new()
         .add_plugins(DefaultPlugins)
