@@ -1,18 +1,17 @@
 use bevy::prelude::*;
 use std::io::{self, Write};
 
-// Minimal Bevy client with an FPS overlay (works with Bevy 0.16.1).
+use crate::maze::MAP1;
 
 #[derive(Component)]
 struct FpsText;
 
-// Small resource that stores the last-displayed integer FPS to avoid
-// reformatting and updating the UI every frame when the value hasn't changed.
 #[derive(Resource)]
 struct FpsCache {
     last: i32,
 }
 
+// === MAPS ===
 pub fn run() {
     use std::net::ToSocketAddrs;
     use std::net::UdpSocket;
@@ -28,19 +27,14 @@ pub fn run() {
             continue;
         }
         let ip_input = ip_input.trim();
-        // Try to parse as SocketAddr
         if let Ok(addr) = ip_input
             .to_socket_addrs()
             .and_then(|mut iter| iter.next().ok_or(std::io::ErrorKind::InvalidInput.into()))
         {
-            // Try to send a test UDP packet
             match UdpSocket::bind("0.0.0.0:0") {
                 Ok(sock) => {
                     sock.set_read_timeout(Some(Duration::from_millis(500))).ok();
                     let _ = sock.send_to(b"ping", addr);
-                    // Optionally, wait for a response (not required for now)
-                    // let mut buf = [0u8; 16];
-                    // if sock.recv_from(&mut buf).is_ok() { ... }
                     println!("Server address accepted: {}", addr);
                     break addr;
                 }
@@ -54,7 +48,7 @@ pub fn run() {
         }
     };
 
-    // Prompt for username only after IP is validated
+    // Prompt for username
     let username = loop {
         print!("Enter Name: ");
         io::stdout().flush().ok();
@@ -85,16 +79,13 @@ pub fn run() {
 }
 
 fn setup(mut commands: Commands) {
-    // UI camera (example uses the unit `Camera2d` marker)
+    // Camera
     commands.spawn(Camera2d);
 
-    // Spawn a parent Text with one section "FPS: " and a child TextSpan which
-    // we will update each frame. This mirrors the Bevy example structure.
+    // FPS text
     commands
         .spawn((
-            // Parent text with the label
             Text::new("FPS: "),
-            // Styling for the parent text
             TextFont {
                 font: default(),
                 font_size: 42.0,
@@ -102,16 +93,39 @@ fn setup(mut commands: Commands) {
             },
         ))
         .with_child((
-            // Child span that will contain the numeric FPS value.
             TextSpan::default(),
             TextFont {
                 font: default(),
                 font_size: 33.0,
                 ..default()
             },
-            // Marker so we can query the span later
             FpsText,
         ));
+
+    // === Minimap ===
+    let tile_size = 5.0; // each cell = 10x10 pixels
+    let offset_x = -590.0; // shift minimap left
+    let offset_y = 210.0;  // shift minimap up
+
+    for (row, line) in MAP1.iter().enumerate() {
+        for (col, &cell) in line.iter().enumerate() {
+            let color = if cell == 1 {
+                Color::BLACK
+            } else {
+                Color::WHITE
+            };
+            commands.spawn(Sprite {
+                color,
+                custom_size: Some(Vec2::splat(tile_size)),
+                ..default()
+            })
+            .insert(Transform::from_xyz(
+                offset_x + col as f32 * tile_size,
+                offset_y - row as f32 * tile_size,
+                -55.0,  // z = y ?????
+            ));
+        }
+    }
 }
 
 fn show_fps(
@@ -124,7 +138,6 @@ fn show_fps(
         return;
     }
 
-    // Compute integer FPS and only update UI when it changes.
     let fps_i = (1.0 / dt).round() as i32;
     if fps_i == cache.last {
         return;
