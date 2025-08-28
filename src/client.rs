@@ -1,5 +1,5 @@
-use crate::maze::MAP1;
-use crate::player_movement;
+use crate::miniMap::mini_map;
+use crate::{miniMap, player_movement};
 use crate::prompts::{prompt_server_addr, prompt_username};
 use crate::structs::{FpsCache, FpsText, Player};
 use bevy::prelude::*;
@@ -55,29 +55,5 @@ fn setup(mut commands: Commands) {
             FpsText,
             
         ));
-
-    // === Minimap ===
-    let tile_size = 8.0; // each cell = 10x10 pixels
-    let offset_x = -590.0; // shift minimap left
-    let offset_y = 250.0;  // shift minimap up
-
-    for (row, line) in MAP1.iter().enumerate() {
-        for (col, &cell) in line.iter().enumerate() {
-            let color = if cell == 1 {
-                Color::BLACK
-            } else {
-                Color::WHITE
-            };
-            commands.spawn(Sprite {
-                color,
-                custom_size: Some(Vec2::splat(tile_size)),
-                ..default()
-            })
-            .insert(Transform::from_xyz(
-                offset_x + col as f32 * tile_size,
-                offset_y - row as f32 * tile_size,
-                -55.0, 
-            ));
-        }
-    }
+        mini_map(commands)
 }

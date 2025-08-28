@@ -1,6 +1,7 @@
 pub mod player_movement;
 pub mod prompts;
 pub mod structs;
+mod miniMap;
 use bevy::prelude::*;
 
 mod client;
