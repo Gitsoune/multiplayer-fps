@@ -103,9 +103,9 @@ fn setup(mut commands: Commands) {
         ));
 
     // === Minimap ===
-    let tile_size = 5.0; // each cell = 10x10 pixels
+    let tile_size = 8.0; // each cell = 10x10 pixels
     let offset_x = -590.0; // shift minimap left
-    let offset_y = 210.0;  // shift minimap up
+    let offset_y = 250.0;  // shift minimap up
 
     for (row, line) in MAP1.iter().enumerate() {
         for (col, &cell) in line.iter().enumerate() {
