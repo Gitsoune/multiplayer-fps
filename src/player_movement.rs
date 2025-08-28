@@ -1,5 +1,5 @@
 use crate::structs::Player;
-use bevy::input::mouse::{MouseButtonInput, MouseMotion};
+use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 
 const PLAYER_SPEED: f32 = 200.0;
@@ -13,6 +13,11 @@ pub fn player_movement(
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Player>>,
 ) {
+    // Shoot on left mouse click (MouseButton::Left just pressed)
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        // Replace this with actual shooting logic (spawn projectile, send event, etc.)
+        println!("Bang! Player shot a projectile.");
+    }
     let mut direction = Vec2::ZERO;
     if keyboard.pressed(KeyCode::KeyZ) || keyboard.pressed(KeyCode::ArrowUp) {
         direction.y += 1.0;
