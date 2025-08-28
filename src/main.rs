@@ -6,6 +6,7 @@ use bevy::prelude::*;
 mod client;
 mod server;
 mod show_fps;
+pub mod maze;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
